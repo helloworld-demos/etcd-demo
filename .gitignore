@@ -1,0 +1,5 @@
+coreos-vagrant
+.vagrant
+.idea
+
+*/.gitignore

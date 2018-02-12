@@ -1,0 +1,64 @@
+# this file is located at /etc/confd/templates
+user www-data;
+worker_processes 4;
+pid /run/nginx.pid;
+
+events {
+	worker_connections 8096;
+	multi_accept on;
+	use epoll;
+}
+
+http {
+
+  ##
+  # Basic Settings
+  ##
+
+  log_format upstreamlog '[$time_local] $remote_addr - $remote_user - $server_name  to: $upstream_addr: $request upstream_response_time $upstream_response_time msec $msec request_time $request_time';
+  include /etc/nginx/mime.types;
+  default_type application/octet-stream;
+
+  ##
+  # Logging Settings
+  ##
+
+  access_log /var/log/nginx-access.log;
+  error_log /var/log/nginx-error.log;
+
+  ##
+  # Virtual Host Configs
+  ##
+
+  {{ if ls "/services/demo-api" }}
+  upstream demo-api {
+    ip_hash;
+  {{ range getvs "/services/demo-api/*" }}
+    server {{ . }};{{ end }}
+  }
+  {{ end }}
+
+  ##
+  # upstream demo-api {
+  #   ip_hash;
+  #
+  #   server 127.0.0.1;
+  #   server 172.217.9.142;
+  # }
+  ##
+
+  server {
+    listen 80;
+
+    # if there is one application registered in the etcd, then enable proxy in nginx by using upstream block
+    {{ if ls "/services/demo-api" }}
+    location / {
+        # proxy_pass should match the name of upstream block
+        proxy_pass http://demo-api/;
+        proxy_http_version 1.1;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+    {{ end }}
+  }
+}
